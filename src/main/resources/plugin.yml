@@ -1,0 +1,42 @@
+name: NationWar
+version: 1.0.0
+main: nl.nationwar.NationWar
+api-version: 1.21
+description: Nation claiming, protection and war system
+authors: [NationWar]
+
+commands:
+  claim:
+    description: Claim the chunk you are standing in
+    usage: /claim
+    permission: nationwar.claim
+  unclaim:
+    description: Unclaim the chunk you are standing in
+    usage: /unclaim
+    permission: nationwar.claim
+  nation:
+    description: Manage your nation
+    usage: /nation <create|join|leave|disband|info|list> [args]
+    permission: nationwar.nation
+  war:
+    description: Declare or view wars
+    usage: /war <declare|status> [args]
+    permission: nationwar.war
+
+permissions:
+  nationwar.*:
+    description: All NationWar permissions
+    default: op
+    children:
+      nationwar.claim: true
+      nationwar.nation: true
+      nationwar.war: true
+  nationwar.claim:
+    description: Allows claiming and unclaiming chunks
+    default: true
+  nationwar.nation:
+    description: Allows using nation commands
+    default: true
+  nationwar.war:
+    description: Allows declaring and viewing wars
+    default: true
