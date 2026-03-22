@@ -118,3 +118,26 @@ public class NationManager {
             config.set(path + ".chunks", new ArrayList<>(n.getClaimedChunks()));
         }
         try {
+            config.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save nations.yml: " + e.getMessage());
+        }
+    }
+
+    public void load() {
+        if (!dataFile.exists()) return;
+        FileConfiguration config = YamlConfiguration.loadConfiguration(dataFile);
+        if (!config.isConfigurationSection("nations")) return;
+        for (String key : config.getConfigurationSection("nations").getKeys(false)) {
+            String path = "nations." + key;
+            String name = config.getString(path + ".name");
+            UUID leader = UUID.fromString(config.getString(path + ".leader"));
+            Nation nation = new Nation(name, leader);
+            for (String m : config.getStringList(path + ".members")) nation.addMember(UUID.fromString(m));
+            nation.getClaimedChunks().addAll(config.getStringList(path + ".chunks"));
+            nations.put(key, nation);
+            for (UUID uuid : nation.getMembers()) playerNation.put(uuid, key);
+        }
+        plugin.getLogger().info("Loaded " + nations.size() + " nations.");
+    }
+}
