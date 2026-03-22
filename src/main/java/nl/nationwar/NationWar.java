@@ -15,7 +15,6 @@ public class NationWar extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
         this.nationManager = new NationManager(this);
         this.warManager = new WarManager(this, nationManager);
         nationManager.load();
