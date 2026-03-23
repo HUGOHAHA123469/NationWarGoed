@@ -1,5 +1,5 @@
 name: NationWar
-version: 1.0.0
+version: 2.0.0
 main: nl.nationwar.NationWar
 api-version: 1.21
 description: Nation claiming, protection and war system
@@ -16,7 +16,7 @@ commands:
     permission: nationwar.claim
   nation:
     description: Manage your nation
-    usage: /nation <create|join|leave|disband|info|list> [args]
+    usage: /nation <create|invite|accept|leave|disband|info|list> [args]
     permission: nationwar.nation
   war:
     description: Declare or view wars
