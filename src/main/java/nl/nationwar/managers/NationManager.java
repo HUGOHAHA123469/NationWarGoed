@@ -2,7 +2,10 @@ package nl.nationwar.managers;
 
 import nl.nationwar.NationWar;
 import nl.nationwar.data.Nation;
+import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -18,9 +21,22 @@ public class NationManager {
     private final Map<UUID, String> playerNation = new HashMap<>();
     private final File dataFile;
 
+    // Spawn chunk protection: 5x5 around spawn = chunks from -2 to +2 in both axes
+    private static final int SPAWN_CHUNK_RADIUS = 2;
+
     public NationManager(NationWar plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "nations.yml");
+    }
+
+    public boolean isSpawnChunk(Chunk chunk) {
+        World world = chunk.getWorld();
+        if (!world.getName().equals("world")) return false;
+        Location spawn = world.getSpawnLocation();
+        int spawnChunkX = spawn.getBlockX() >> 4;
+        int spawnChunkZ = spawn.getBlockZ() >> 4;
+        return Math.abs(chunk.getX() - spawnChunkX) <= SPAWN_CHUNK_RADIUS
+                && Math.abs(chunk.getZ() - spawnChunkZ) <= SPAWN_CHUNK_RADIUS;
     }
 
     public String createNation(Player leader, String name) {
@@ -31,6 +47,7 @@ public class NationManager {
         Nation nation = new Nation(name, leader.getUniqueId());
         nations.put(name.toLowerCase(), nation);
         playerNation.put(leader.getUniqueId(), name.toLowerCase());
+        updatePlayerDisplayName(leader);
         save();
         return null;
     }
@@ -39,18 +56,40 @@ public class NationManager {
         Nation nation = getNationOf(player);
         if (nation == null) return "You are not in a nation.";
         if (!nation.getLeader().equals(player.getUniqueId())) return "Only the leader can disband the nation.";
-        for (UUID uuid : nation.getMembers()) playerNation.remove(uuid);
+        for (UUID uuid : nation.getMembers()) {
+            playerNation.remove(uuid);
+            Player member = Bukkit.getPlayer(uuid);
+            if (member != null) {
+                resetPlayerDisplayName(member);
+            }
+        }
         nations.remove(nation.getName().toLowerCase());
         save();
         return null;
     }
 
-    public String joinNation(Player player, String name) {
+    public String invitePlayer(Player leader, Player target) {
+        Nation nation = getNationOf(leader);
+        if (nation == null) return "You are not in a nation.";
+        if (!nation.getLeader().equals(leader.getUniqueId())) return "Only the leader can invite players.";
+        if (nation.isFull()) return "Your nation is full (max " + Nation.MAX_MEMBERS + " members).";
+        if (playerNation.containsKey(target.getUniqueId())) return target.getName() + " is already in a nation.";
+        if (nation.hasInvite(target.getUniqueId())) return target.getName() + " already has a pending invite.";
+        nation.addInvite(target.getUniqueId());
+        save();
+        return null;
+    }
+
+    public String acceptInvite(Player player, String nationName) {
         if (playerNation.containsKey(player.getUniqueId())) return "You are already in a nation.";
-        Nation nation = nations.get(name.toLowerCase());
+        Nation nation = nations.get(nationName.toLowerCase());
         if (nation == null) return "Nation not found.";
+        if (!nation.hasInvite(player.getUniqueId())) return "You do not have an invite from that nation.";
+        if (nation.isFull()) return "That nation is now full.";
+        nation.removeInvite(player.getUniqueId());
         nation.addMember(player.getUniqueId());
-        playerNation.put(player.getUniqueId(), name.toLowerCase());
+        playerNation.put(player.getUniqueId(), nationName.toLowerCase());
+        updatePlayerDisplayName(player);
         save();
         return null;
     }
@@ -61,12 +100,19 @@ public class NationManager {
         if (nation.getLeader().equals(player.getUniqueId())) return "You are the leader. Use /nation disband to disband the nation.";
         nation.removeMember(player.getUniqueId());
         playerNation.remove(player.getUniqueId());
+        resetPlayerDisplayName(player);
         save();
         return null;
     }
 
     public Nation getNationOf(Player player) {
         String name = playerNation.get(player.getUniqueId());
+        if (name == null) return null;
+        return nations.get(name);
+    }
+
+    public Nation getNationOfUUID(UUID uuid) {
+        String name = playerNation.get(uuid);
         if (name == null) return null;
         return nations.get(name);
     }
@@ -86,8 +132,9 @@ public class NationManager {
         Nation nation = getNationOf(player);
         if (nation == null) return "You are not in a nation.";
         if (!nation.getLeader().equals(player.getUniqueId())) return "Only the nation leader can claim chunks.";
+        if (isSpawnChunk(chunk)) return "You cannot claim spawn chunks!";
         if (getNationAt(chunk) != null) return "This chunk is already claimed.";
-        if (!nation.claimChunk(chunk)) return "Your nation has reached the maximum of 50 claimed chunks.";
+        if (!nation.claimChunk(chunk)) return "Your nation has reached the maximum of " + Nation.MAX_CLAIMS + " claimed chunks.";
         save();
         return null;
     }
@@ -105,6 +152,28 @@ public class NationManager {
 
     public Collection<Nation> getAllNations() { return nations.values(); }
 
+    public void updatePlayerDisplayName(Player player) {
+        Nation nation = getNationOf(player);
+        if (nation == null) {
+            resetPlayerDisplayName(player);
+            return;
+        }
+        String display = player.getName() + " §6" + nation.getName();
+        player.setDisplayName(display);
+        player.setPlayerListName(display);
+    }
+
+    public void resetPlayerDisplayName(Player player) {
+        player.setDisplayName(player.getName());
+        player.setPlayerListName(player.getName());
+    }
+
+    public void updateAllDisplayNames() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            updatePlayerDisplayName(player);
+        }
+    }
+
     public void save() {
         YamlConfiguration config = new YamlConfiguration();
         for (Map.Entry<String, Nation> entry : nations.entrySet()) {
@@ -116,6 +185,9 @@ public class NationManager {
             for (UUID uuid : n.getMembers()) members.add(uuid.toString());
             config.set(path + ".members", members);
             config.set(path + ".chunks", new ArrayList<>(n.getClaimedChunks()));
+            List<String> invites = new ArrayList<>();
+            for (UUID uuid : n.getPendingInvites()) invites.add(uuid.toString());
+            config.set(path + ".invites", invites);
         }
         try {
             config.save(dataFile);
@@ -135,6 +207,7 @@ public class NationManager {
             Nation nation = new Nation(name, leader);
             for (String m : config.getStringList(path + ".members")) nation.addMember(UUID.fromString(m));
             nation.getClaimedChunks().addAll(config.getStringList(path + ".chunks"));
+            for (String i : config.getStringList(path + ".invites")) nation.addInvite(UUID.fromString(i));
             nations.put(key, nation);
             for (UUID uuid : nation.getMembers()) playerNation.put(uuid, key);
         }
