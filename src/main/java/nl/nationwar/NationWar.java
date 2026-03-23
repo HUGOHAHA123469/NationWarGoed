@@ -17,14 +17,22 @@ public class NationWar extends JavaPlugin {
     public void onEnable() {
         this.nationManager = new NationManager(this);
         this.warManager = new WarManager(this, nationManager);
+
         nationManager.load();
         warManager.load();
+
         getCommand("claim").setExecutor(new ClaimCommand(this, nationManager));
         getCommand("unclaim").setExecutor(new ClaimCommand(this, nationManager));
         getCommand("nation").setExecutor(new NationCommand(this, nationManager));
         getCommand("war").setExecutor(new WarCommand(this, nationManager, warManager));
+
         getServer().getPluginManager().registerEvents(new ProtectionListener(nationManager, warManager), this);
+
         warManager.startWarTimer();
+
+        // Update display names for all online players
+        nationManager.updateAllDisplayNames();
+
         getLogger().info("NationWar enabled!");
     }
 
