@@ -28,13 +28,14 @@ public class ClaimCommand implements CommandExecutor {
         }
         Player player = (Player) sender;
         Chunk chunk = player.getLocation().getChunk();
+
         if (label.equalsIgnoreCase("claim")) {
             String error = nationManager.claimChunk(player, chunk);
             if (error != null) {
                 player.sendMessage(ChatColor.RED + error);
             } else {
                 Nation nation = nationManager.getNationOf(player);
-                player.sendMessage(ChatColor.GREEN + "Chunk claimed! (" + nation.getClaimCount() + "/50)");
+                player.sendMessage(ChatColor.GREEN + "Chunk claimed! (" + nation.getClaimCount() + "/" + Nation.MAX_CLAIMS + ")");
             }
         } else if (label.equalsIgnoreCase("unclaim")) {
             String error = nationManager.unclaimChunk(player, chunk);
@@ -42,7 +43,7 @@ public class ClaimCommand implements CommandExecutor {
                 player.sendMessage(ChatColor.RED + error);
             } else {
                 Nation nation = nationManager.getNationOf(player);
-                player.sendMessage(ChatColor.YELLOW + "Chunk unclaimed. (" + nation.getClaimCount() + "/50)");
+                player.sendMessage(ChatColor.YELLOW + "Chunk unclaimed. (" + nation.getClaimCount() + "/" + Nation.MAX_CLAIMS + ")");
             }
         }
         return true;
