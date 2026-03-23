@@ -31,6 +31,7 @@ public class NationCommand implements CommandExecutor {
         if (args.length == 0) { sendHelp(player); return true; }
 
         switch (args[0].toLowerCase()) {
+
             case "create":
                 if (args.length < 2) { player.sendMessage(ChatColor.RED + "Usage: /nation create <name>"); return true; }
                 String error = nationManager.createNation(player, args[1]);
@@ -42,13 +43,37 @@ public class NationCommand implements CommandExecutor {
                 }
                 break;
 
-            case "join":
-                if (args.length < 2) { player.sendMessage(ChatColor.RED + "Usage: /nation join <name>"); return true; }
-                String joinError = nationManager.joinNation(player, args[1]);
-                if (joinError != null) {
-                    player.sendMessage(ChatColor.RED + joinError);
+            case "invite":
+                if (args.length < 2) { player.sendMessage(ChatColor.RED + "Usage: /nation invite <player>"); return true; }
+                Player target = Bukkit.getPlayer(args[1]);
+                if (target == null) { player.sendMessage(ChatColor.RED + "Player not found or offline."); return true; }
+                String inviteError = nationManager.invitePlayer(player, target);
+                if (inviteError != null) {
+                    player.sendMessage(ChatColor.RED + inviteError);
+                } else {
+                    player.sendMessage(ChatColor.GREEN + "Invite sent to " + target.getName() + "!");
+                    target.sendMessage(ChatColor.GOLD + "You have been invited to join nation '"
+                        + ChatColor.YELLOW + nationManager.getNationOf(player).getName()
+                        + ChatColor.GOLD + "'! Type " + ChatColor.WHITE + "/nation accept "
+                        + nationManager.getNationOf(player).getName() + ChatColor.GOLD + " to accept.");
+                }
+                break;
+
+            case "accept":
+                if (args.length < 2) { player.sendMessage(ChatColor.RED + "Usage: /nation accept <nation>"); return true; }
+                String acceptError = nationManager.acceptInvite(player, args[1]);
+                if (acceptError != null) {
+                    player.sendMessage(ChatColor.RED + acceptError);
                 } else {
                     player.sendMessage(ChatColor.GREEN + "You have joined nation '" + args[1] + "'!");
+                    Nation joined = nationManager.getNation(args[1]);
+                    if (joined != null) {
+                        for (java.util.UUID uuid : joined.getMembers()) {
+                            Player member = Bukkit.getPlayer(uuid);
+                            if (member != null && !member.equals(player))
+                                member.sendMessage(ChatColor.YELLOW + player.getName() + " has joined your nation!");
+                        }
+                    }
                 }
                 break;
 
@@ -81,8 +106,8 @@ public class NationCommand implements CommandExecutor {
                 OfflinePlayer leaderPlayer = Bukkit.getOfflinePlayer(infoNation.getLeader());
                 player.sendMessage(ChatColor.GOLD + "=== " + infoNation.getName() + " ===");
                 player.sendMessage(ChatColor.YELLOW + "Leader: " + ChatColor.WHITE + (leaderPlayer.getName() != null ? leaderPlayer.getName() : "Unknown"));
-                player.sendMessage(ChatColor.YELLOW + "Members: " + ChatColor.WHITE + infoNation.getMembers().size());
-                player.sendMessage(ChatColor.YELLOW + "Claimed chunks: " + ChatColor.WHITE + infoNation.getClaimCount() + "/50");
+                player.sendMessage(ChatColor.YELLOW + "Members: " + ChatColor.WHITE + infoNation.getMembers().size() + "/" + Nation.MAX_MEMBERS);
+                player.sendMessage(ChatColor.YELLOW + "Claimed chunks: " + ChatColor.WHITE + infoNation.getClaimCount() + "/" + Nation.MAX_CLAIMS);
                 break;
 
             case "list":
@@ -91,7 +116,8 @@ public class NationCommand implements CommandExecutor {
                     player.sendMessage(ChatColor.GRAY + "No nations have been created yet.");
                 } else {
                     for (Nation n : nationManager.getAllNations()) {
-                        player.sendMessage(ChatColor.YELLOW + "- " + n.getName() + ChatColor.GRAY + " (" + n.getMembers().size() + " members, " + n.getClaimCount() + " chunks)");
+                        player.sendMessage(ChatColor.YELLOW + "- " + n.getName()
+                                + ChatColor.GRAY + " (" + n.getMembers().size() + "/" + Nation.MAX_MEMBERS + " members, " + n.getClaimCount() + " chunks)");
                     }
                 }
                 break;
@@ -105,7 +131,8 @@ public class NationCommand implements CommandExecutor {
     private void sendHelp(Player player) {
         player.sendMessage(ChatColor.GOLD + "=== NationWar Commands ===");
         player.sendMessage(ChatColor.YELLOW + "/nation create <name>" + ChatColor.WHITE + " - Create a new nation");
-        player.sendMessage(ChatColor.YELLOW + "/nation join <name>" + ChatColor.WHITE + " - Join a nation");
+        player.sendMessage(ChatColor.YELLOW + "/nation invite <player>" + ChatColor.WHITE + " - Invite a player (leader only)");
+        player.sendMessage(ChatColor.YELLOW + "/nation accept <nation>" + ChatColor.WHITE + " - Accept an invite");
         player.sendMessage(ChatColor.YELLOW + "/nation leave" + ChatColor.WHITE + " - Leave your nation");
         player.sendMessage(ChatColor.YELLOW + "/nation disband" + ChatColor.WHITE + " - Disband your nation (leader only)");
         player.sendMessage(ChatColor.YELLOW + "/nation info [name]" + ChatColor.WHITE + " - View nation info");
