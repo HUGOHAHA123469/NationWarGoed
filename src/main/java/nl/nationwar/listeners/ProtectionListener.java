@@ -14,6 +14,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.Chunk;
 
 public class ProtectionListener implements Listener {
 
@@ -39,6 +42,44 @@ public class ProtectionListener implements Listener {
             if (w.isActive() && w.involves(owner.getName())) return true;
         }
         return false;
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        nationManager.updatePlayerDisplayName(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
+
+        Chunk toChunk = event.getTo().getChunk();
+        Nation owner = nationManager.getNationAt(toChunk);
+
+        if (owner != null) {
+            Nation playerNation = nationManager.getNationOf(player);
+            boolean isOwn = playerNation != null && playerNation.getName().equalsIgnoreCase(owner.getName());
+
+            String titleColor = isOwn ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
+            String subtitle = isOwn ? ChatColor.GRAY + "Your territory" : ChatColor.GRAY + "Foreign territory";
+
+            player.sendTitle(
+                titleColor + owner.getName(),
+                subtitle,
+                10, 40, 10
+            );
+        } else {
+            // Entering unclaimed land
+            Nation fromOwner = nationManager.getNationAt(event.getFrom().getChunk());
+            if (fromOwner != null) {
+                player.sendTitle(
+                    ChatColor.WHITE + "Wilderness",
+                    ChatColor.GRAY + "Unclaimed territory",
+                    10, 40, 10
+                );
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
