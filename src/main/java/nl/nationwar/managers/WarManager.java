@@ -38,12 +38,14 @@ public class WarManager {
             if (w.isAtWar(attackerName, defenderName)) return "There is already a war between these nations.";
         }
         long now = System.currentTimeMillis();
-        War war = new War(attackerName, defenderName, now);
+        War war = new War(attackerName, defenderName, now); // starts 24h later
         wars.add(war);
         save();
+
         String startTimeStr = timeFormat.format(new Date(war.getStartTime()));
         long hoursUntil = (war.getStartTime() - now) / 1000 / 3600;
         long minutesUntil = ((war.getStartTime() - now) / 1000 / 60) % 60;
+
         Bukkit.broadcastMessage(
             ChatColor.RED + "" + ChatColor.BOLD + "WAR DECLARED!" + ChatColor.RESET
             + ChatColor.RED + " " + attackerName + " has declared war on " + defenderName + "!"
@@ -64,6 +66,7 @@ public class WarManager {
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
             long now = System.currentTimeMillis();
             boolean changed = false;
+
             for (War w : new ArrayList<>(wars)) {
                 if (!w.isActive() && now >= w.getStartTime()) {
                     w.setActive(true);
@@ -87,6 +90,7 @@ public class WarManager {
                     );
                 }
             }
+
             for (War w : new ArrayList<>(wars)) {
                 if (!w.isActive()) {
                     long msLeft = w.getStartTime() - now;
@@ -104,6 +108,7 @@ public class WarManager {
                     }
                 }
             }
+
             if (changed) save();
         }, 20L * 30, 20L * 30);
     }
@@ -122,8 +127,11 @@ public class WarManager {
             config.set(path + ".endTime", w.getEndTime());
             config.set(path + ".active", w.isActive());
         }
-        try { config.save(dataFile); }
-        catch (IOException e) { plugin.getLogger().severe("Could not save wars.yml: " + e.getMessage()); }
+        try {
+            config.save(dataFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Could not save wars.yml: " + e.getMessage());
+        }
     }
 
     public void load() {
