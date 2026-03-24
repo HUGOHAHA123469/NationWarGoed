@@ -16,12 +16,18 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.Chunk;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class ProtectionListener implements Listener {
 
     private final NationManager nationManager;
     private final WarManager warManager;
+    private final Map<UUID, String> playerCurrentNation = new HashMap<>();
 
     public ProtectionListener(NationManager nationManager, WarManager warManager) {
         this.nationManager = nationManager;
@@ -47,6 +53,16 @@ public class ProtectionListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         nationManager.updatePlayerDisplayName(event.getPlayer());
+        // Set current nation on join
+        Nation nation = nationManager.getNationAt(event.getPlayer().getLocation().getChunk());
+        if (nation != null) {
+            playerCurrentNation.put(event.getPlayer().getUniqueId(), nation.getName());
+        }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        playerCurrentNation.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler
@@ -55,30 +71,32 @@ public class ProtectionListener implements Listener {
         if (event.getFrom().getChunk().equals(event.getTo().getChunk())) return;
 
         Chunk toChunk = event.getTo().getChunk();
-        Nation owner = nationManager.getNationAt(toChunk);
+        Nation toNation = nationManager.getNationAt(toChunk);
 
-        if (owner != null) {
+        String toNationName = toNation != null ? toNation.getName() : null;
+        String currentNationName = playerCurrentNation.get(player.getUniqueId());
+
+        // Only show title if nation changed
+        boolean changed = (toNationName == null && currentNationName != null)
+                || (toNationName != null && !toNationName.equals(currentNationName));
+
+        if (!changed) return;
+
+        // Update tracked nation
+        if (toNationName != null) {
+            playerCurrentNation.put(player.getUniqueId(), toNationName);
+        } else {
+            playerCurrentNation.remove(player.getUniqueId());
+        }
+
+        if (toNation != null) {
             Nation playerNation = nationManager.getNationOf(player);
-            boolean isOwn = playerNation != null && playerNation.getName().equalsIgnoreCase(owner.getName());
-
+            boolean isOwn = playerNation != null && playerNation.getName().equalsIgnoreCase(toNation.getName());
             String titleColor = isOwn ? ChatColor.GREEN.toString() : ChatColor.RED.toString();
             String subtitle = isOwn ? ChatColor.GRAY + "Your territory" : ChatColor.GRAY + "Foreign territory";
-
-            player.sendTitle(
-                titleColor + owner.getName(),
-                subtitle,
-                10, 40, 10
-            );
+            player.sendTitle(titleColor + toNation.getName(), subtitle, 10, 40, 10);
         } else {
-            // Entering unclaimed land
-            Nation fromOwner = nationManager.getNationAt(event.getFrom().getChunk());
-            if (fromOwner != null) {
-                player.sendTitle(
-                    ChatColor.WHITE + "Wilderness",
-                    ChatColor.GRAY + "Unclaimed territory",
-                    10, 40, 10
-                );
-            }
+            player.sendTitle(ChatColor.WHITE + "Wilderness", ChatColor.GRAY + "Unclaimed territory", 10, 40, 10);
         }
     }
 
