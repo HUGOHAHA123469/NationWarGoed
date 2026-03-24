@@ -93,6 +93,9 @@ public class NationManager {
         save();
         return null;
     }
+    public String joinNation(Player player, String nationName) {
+    return acceptInvite(player, nationName);
+}
 
     public String leaveNation(Player player) {
         Nation nation = getNationOf(player);
