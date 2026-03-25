@@ -48,6 +48,7 @@ public class WarCommand implements CommandExecutor {
                 Nation myNation = nationManager.getNationOf(player);
                 if (myNation == null) { player.sendMessage(ChatColor.RED + "You are not in a nation."); return true; }
                 if (!myNation.getLeader().equals(player.getUniqueId())) { player.sendMessage(ChatColor.RED + "Only the nation leader can declare war."); return true; }
+                if (myNation.getMembers().size() < 2) { player.sendMessage(ChatColor.RED + "You need at least 2 members in your nation to declare war."); return true; }
                 String declareError = warManager.declareWar(myNation.getName(), args[1]);
                 if (declareError != null) {
                     player.sendMessage(ChatColor.RED + declareError);
