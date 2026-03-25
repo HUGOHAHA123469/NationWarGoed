@@ -12,7 +12,7 @@ public class Nation {
     private final Set<UUID> pendingInvites = new HashSet<>();
 
     public static final int MAX_MEMBERS = 5;
-    public static final int MAX_CLAIMS = 50;
+    public static final int MAX_CLAIMS = 100;
 
     public Nation(String name, UUID leader) {
         this.name = name;
