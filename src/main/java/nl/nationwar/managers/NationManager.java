@@ -21,7 +21,6 @@ public class NationManager {
     private final Map<UUID, String> playerNation = new HashMap<>();
     private final File dataFile;
 
-    // Spawn chunk protection: 5x5 around spawn = chunks from -2 to +2 in both axes
     private static final int SPAWN_CHUNK_RADIUS = 2;
 
     public NationManager(NationWar plugin) {
@@ -59,9 +58,7 @@ public class NationManager {
         for (UUID uuid : nation.getMembers()) {
             playerNation.remove(uuid);
             Player member = Bukkit.getPlayer(uuid);
-            if (member != null) {
-                resetPlayerDisplayName(member);
-            }
+            if (member != null) resetPlayerDisplayName(member);
         }
         nations.remove(nation.getName().toLowerCase());
         save();
@@ -93,9 +90,6 @@ public class NationManager {
         save();
         return null;
     }
-    public String joinNation(Player player, String nationName) {
-    return acceptInvite(player, nationName);
-}
 
     public String leaveNation(Player player) {
         Nation nation = getNationOf(player);
@@ -161,7 +155,8 @@ public class NationManager {
             resetPlayerDisplayName(player);
             return;
         }
-        String display = player.getName() + " §6" + nation.getName();
+        // Nation name BEFORE player name, nation name in orange
+        String display = "\u00a76" + nation.getName() + "\u00a7r " + player.getName();
         player.setDisplayName(display);
         player.setPlayerListName(display);
     }
