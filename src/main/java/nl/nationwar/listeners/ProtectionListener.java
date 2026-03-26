@@ -7,7 +7,10 @@ import nl.nationwar.managers.WarManager;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Creeper;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -50,10 +53,22 @@ public class ProtectionListener implements Listener {
         return false;
     }
 
+    private boolean isCreeperExplosion(EntityExplodeEvent event) {
+        Entity entity = event.getEntity();
+        // Direct creeper
+        if (entity instanceof Creeper) return true;
+        // Creeper in a vehicle (boat/minecart)
+        if (entity instanceof Vehicle) {
+            for (Entity passenger : entity.getPassengers()) {
+                if (passenger instanceof Creeper) return true;
+            }
+        }
+        return false;
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         nationManager.updatePlayerDisplayName(event.getPlayer());
-        // Set current nation on join
         Nation nation = nationManager.getNationAt(event.getPlayer().getLocation().getChunk());
         if (nation != null) {
             playerCurrentNation.put(event.getPlayer().getUniqueId(), nation.getName());
@@ -76,13 +91,11 @@ public class ProtectionListener implements Listener {
         String toNationName = toNation != null ? toNation.getName() : null;
         String currentNationName = playerCurrentNation.get(player.getUniqueId());
 
-        // Only show title if nation changed
         boolean changed = (toNationName == null && currentNationName != null)
                 || (toNationName != null && !toNationName.equals(currentNationName));
 
         if (!changed) return;
 
-        // Update tracked nation
         if (toNationName != null) {
             playerCurrentNation.put(player.getUniqueId(), toNationName);
         } else {
@@ -141,9 +154,13 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplosion(EntityExplodeEvent event) {
+        // Always block creeper explosions on claimed land, even during war
+        boolean isCreeper = isCreeperExplosion(event);
+
         event.blockList().removeIf(block -> {
             Nation owner = nationManager.getNationAt(block.getChunk());
             if (owner == null) return false;
+            if (isCreeper) return true; // always protect against creepers
             return !isWarActive(owner);
         });
     }
