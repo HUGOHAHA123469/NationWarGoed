@@ -9,6 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
@@ -16,6 +17,8 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.*;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -55,9 +58,7 @@ public class ProtectionListener implements Listener {
 
     private boolean isCreeperExplosion(EntityExplodeEvent event) {
         Entity entity = event.getEntity();
-        // Direct creeper
         if (entity instanceof Creeper) return true;
-        // Creeper in a vehicle (boat/minecart)
         if (entity instanceof Vehicle) {
             for (Entity passenger : entity.getPassengers()) {
                 if (passenger instanceof Creeper) return true;
@@ -130,6 +131,26 @@ public class ProtectionListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
+    public void onBucketEmpty(PlayerBucketEmptyEvent event) {
+        Block block = event.getBlock();
+        if (isProtected(event.getPlayer(), block)) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(ChatColor.RED + "This area belongs to another nation!");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onFireballLaunch(ProjectileLaunchEvent event) {
+        if (event.getEntity() instanceof Fireball) {
+            if (event.getEntity().getShooter() instanceof Player) {
+                Player player = (Player) event.getEntity().getShooter();
+                event.setCancelled(true);
+                player.sendMessage(ChatColor.RED + "Fireballs are disabled on this server!");
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getClickedBlock() == null) return;
         Block block = event.getClickedBlock();
@@ -154,13 +175,11 @@ public class ProtectionListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onEntityExplosion(EntityExplodeEvent event) {
-        // Always block creeper explosions on claimed land, even during war
         boolean isCreeper = isCreeperExplosion(event);
-
         event.blockList().removeIf(block -> {
             Nation owner = nationManager.getNationAt(block.getChunk());
             if (owner == null) return false;
-            if (isCreeper) return true; // always protect against creepers
+            if (isCreeper) return true;
             return !isWarActive(owner);
         });
     }
